@@ -5,8 +5,14 @@ import { defaultJsOptions } from "nats/lib/jetstream/jsbaseclient_api";
 
 async function runWorker()
 {
-    const nc = await connect({servers: "localhost:4222"});
-    console.log(`Worker connected to nats`);
+    const natsUrl = process.env.NATS_URL || "localhost:4222";
+
+    const nc = await connect({
+        servers: natsUrl,
+        maxReconnectAttempts : 10,
+        reconnectTimeWait: 2000,
+    });
+    console.log(`Worker connected to nats server at ${natsUrl}`);
 
 
     const js = nc.jetstream();
@@ -26,8 +32,8 @@ async function runWorker()
 
     console.log("Worker waiting for tasks...");
 
-    //fetch messages
-    const messages = await consumer.consume();
+
+    const messages = await consumer.consume();//fetch messages
     
 
     for await (const msg of messages){

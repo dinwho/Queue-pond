@@ -25,8 +25,8 @@ async function runPublisher(){
 
     const task : PriceCheckTask = {
         taskId : "job-004",
-        productUrl : "dinotube.com/m1",
-        targetPrice: 6.77,
+        productUrl : "damplips.com/m1",
+        targetPrice: 4.20,
         userEmail: "hi@lol.com",
         createdAt: new Date().toISOString(),
     };
