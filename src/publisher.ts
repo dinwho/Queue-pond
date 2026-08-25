@@ -24,15 +24,16 @@ async function runPublisher(){
     console.log(`Stream '${streamName}' is ready to capture '${subjName}' messages`);
 
     const task : PriceCheckTask = {
-        taskId : "job-002",
-        productUrl : "damplips.com/m1",
-        targetPrice: 6.99,
+        taskId : "job-004",
+        productUrl : "dinotube.com/m1",
+        targetPrice: 6.77,
         userEmail: "hi@lol.com",
         createdAt: new Date().toISOString(),
     };
 
     const jcMessage = JSONCodec<PriceCheckTask>();
     const ack = await jc.publish(subjName,jcMessage.encode(task));
+
 
     console.log(`Published task ${task.taskId}! JetStream Sequence ID: ${ack.seq}`);
     await nc.close();
