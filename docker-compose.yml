@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  nats:
+    image: nats:latest
+    container_name: nats-server
+    command: ["-js"]
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+
+  worker:
+    build: .
+    container_name: vulture-worker
+    environment:
+      - NATS_URL=nats:4222
+    depends_on:
+      - nats
+
+
+    
