@@ -1,6 +1,8 @@
 import { connect, JSONCodec, AckPolicy } from "nats";
 import { PriceCheckTask } from ".";
 import { defaultJsOptions } from "nats/lib/jetstream/jsbaseclient_api";
+import { processPriceCheck } from "./processor";
+
 
 
 async function runWorker()
@@ -43,8 +45,8 @@ async function runWorker()
         console.log(` [WORKER] Scraping URL: ${task.productUrl}`);
         console.log(` [WORKER] Target Price: $${task.targetPrice}`);
 
+        await processPriceCheck(task);
 
-        await new Promise((resolve) => setTimeout(resolve, 1000));
 
         msg.ack();
         console.log(` [WORKER] Task ${task.taskId} completed and ACKed!\n`);

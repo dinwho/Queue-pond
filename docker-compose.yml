@@ -9,8 +9,11 @@ services:
 
   worker:
     build: .
-    container_name: vulture-worker
+    restart: unless-stopped
     environment:
       - NATS_URL=nats:4222
     depends_on:
       - nats
+
+volumes:
+  nats_data:
