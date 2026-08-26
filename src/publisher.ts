@@ -1,4 +1,4 @@
-import { connect, JSONCodec } from "nats";
+import { connect, JSONCodec, StorageType } from "nats";
 import { PriceCheckTask } from ".";
 
 async function runPublisher(){
@@ -18,6 +18,7 @@ async function runPublisher(){
     await jsm.streams.add({
         name: streamName,
         subjects: [subjName],
+        storage: StorageType.File,
     });
 
 
@@ -25,7 +26,7 @@ async function runPublisher(){
 
     const task : PriceCheckTask = {
         taskId : "job-004",
-        productUrl : "damplips.com/m1",
+        productUrl : "damplips.com",
         targetPrice: 4.20,
         userEmail: "hi@lol.com",
         createdAt: new Date().toISOString(),

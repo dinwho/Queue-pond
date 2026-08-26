@@ -15,3 +15,6 @@ docker run -d --name nats-server -p 4222:4222 -p 8222:8222 nats:latest -js
 - -p 8222:8222: Maps port 8222 (the NATS HTTP monitoring dashboard port).
 nats:latest: Downloads the official, lightweight NATS image.
 - -js: Crucial flag! Enables JetStream (without -js, NATS runs in fire-and-forget mode).
+
+
+Running the headless browser on a seperate docker container and the worker containers will opearate through websockets

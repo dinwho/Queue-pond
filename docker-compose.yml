@@ -6,7 +6,16 @@ services:
     ports:
       - "4222:4222"
       - "8222:8222"
-
+  #browser as a service container
+  browserless:
+    image: ghcr.io/browserless/chromium:v2.19.0
+    container_name: browserless-chrome
+    ports:
+      - "3000:3000"
+    environment:
+      - CONCURRENT=10
+      - TOKEN=secrettoken123
+    restart: unless-stopped
   worker:
     build: .
     restart: unless-stopped
@@ -17,3 +26,4 @@ services:
 
 volumes:
   nats_data:
+
