@@ -1,6 +1,5 @@
-import { connect, JSONCodec, AckPolicy } from "nats";
+import { connect, JSONCodec } from "nats";
 import { PriceCheckTask } from ".";
-import { defaultJsOptions } from "nats/lib/jetstream/jsbaseclient_api";
 import { processPriceCheck } from "./processor";
 
 
@@ -45,17 +44,20 @@ async function runWorker()
         console.log(` [WORKER] Scraping URL: ${task.productUrl}`);
         console.log(` [WORKER] Target Price: $${task.targetPrice}`);
 
-        await processPriceCheck(task);
-
-
-        msg.ack();
-        console.log(` [WORKER] Task ${task.taskId} completed and ACKed!\n`);
+        try {
+            await processPriceCheck(task);
+            msg.ack();
+            console.log(` [WORKER] Task ${task.taskId} completed and ACKed!\n`);
+        } catch (error) {
+            console.error(` [WORKER] Task ${task.taskId} failed; retrying in 5 seconds.`, error);
+            msg.nak(5_000);
+        }
 
     }
 
 
 }
-runWorker().catch((err)=> {console.log("fuck you", err)});
+runWorker().catch((err)=> console.error("Worker stopped:", err));
 
 
 

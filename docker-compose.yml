@@ -15,14 +15,24 @@ services:
     environment:
       - CONCURRENT=10
       - TOKEN=secrettoken123
+      - DEBUG=browserless:info,browserless:error
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/pressure?token=secrettoken123"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
   worker:
     build: .
     restart: unless-stopped
     environment:
       - NATS_URL=nats:4222
+      - BROWSERLESS_URL=ws://browserless:3000?token=secrettoken123
     depends_on:
-      - nats
+      nats:
+        condition: service_started
+      browserless:
+        condition: service_healthy
 
 volumes:
   nats_data:

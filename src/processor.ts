@@ -1,20 +1,37 @@
 import { PriceCheckTask } from ".";
-import { chromium } from "playwright-core";
+import { Browser, BrowserContext, chromium } from "playwright-core";
 
+function normalizeProductUrl(productUrl: string): string {
+    const withProtocol = /^[a-z][a-z\d+.-]*:\/\//i.test(productUrl)
+        ? productUrl
+        : `https://${productUrl}`;
+
+    return new URL(withProtocol).toString();
+}
 
 export async function processPriceCheck(task: PriceCheckTask): Promise<void>{
 
     
     console.log(`\n------------------------------`);
+    console.log(`[WORKER] Starting Task: ${task.taskId}`);
+    const productUrl = normalizeProductUrl(task.productUrl);
+    console.log(`[WORKER] Navigating to: ${productUrl}`);
 
-    const browserlessUrl = process.env.BROWSERLESSURL || "ws://browserless:3000?token=secrettoken123";
+    // Use `browserless` from Docker; override this with localhost when running the worker on the host.
+    const browserlessUrl = process.env.BROWSERLESS_URL
+        || process.env.BROWSERLESSURL // temporary backwards compatibility
+        || "ws://browserless:3000?token=secrettoken123";
 
-    const browser = await chromium.connect(browserlessUrl);
+    let browser: Browser | undefined;
+    let context: BrowserContext | undefined;
+
     try{
-        const context = await browser.newContext();
+        // Browserless exposes Chromium's Chrome DevTools Protocol (CDP), not a Playwright server.
+        browser = await chromium.connectOverCDP(browserlessUrl, { timeout: 10_000 });
+        context = await browser.newContext();
         const page = await context.newPage();
 
-        await page.goto(task.productUrl, {waitUntil: "domcontentloaded"});
+        await page.goto(productUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
 
         const pageTitle = await page.title();
         console.log(`[PROCESSOR] Page Title Loaded: "${pageTitle}"`);
@@ -29,10 +46,9 @@ export async function processPriceCheck(task: PriceCheckTask): Promise<void>{
         } else {
             console.log(`[INFO] Price still above target, No alert sent`);
         }
-        await context.close();
-
     }finally{
-        await browser.close();
+        await context?.close();
+        await browser?.close();
     }
 
     console.log(`--------------------------------------------------\n`);
