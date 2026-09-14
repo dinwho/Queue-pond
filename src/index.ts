@@ -6,6 +6,22 @@ export interface PriceCheckTask{
     createdAt: string;
 }
 
+type TrackerState = {
+  taskId: string;
+  productUrl: string;
+  targetPrice: number;
+  userEmail: string;
+  createdAt: string;
+
+  currentPrice?: number;
+  previousPrice?: number;
+  attempts: number;
+  status: "pending" | "checking" | "alerted" | "retry" | "stopped";
+  nextCheckAt?: string;
+  error?: string;
+};
+
+
 const sampleTask: PriceCheckTask = {
   taskId: "job-101",
   productUrl: "https://example.com/product",

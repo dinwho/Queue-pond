@@ -2,7 +2,7 @@ import { connect, JSONCodec, StorageType } from "nats";
 import { PriceCheckTask } from ".";
 
 async function runPublisher(){
-    const nc = await connect({servers: "localhost:4222"});
+    const nc = await connect({ servers: process.env.NATS_URL || "localhost:4222" });
     console.log("connected to nats server");
 
 
@@ -15,11 +15,15 @@ async function runPublisher(){
     const subjName = "price.check";
 
 
-    await jsm.streams.add({
-        name: streamName,
-        subjects: [subjName],
-        storage: StorageType.File,
-    });
+    try {
+        await jsm.streams.info(streamName);
+    } catch {
+        await jsm.streams.add({
+            name: streamName,
+            subjects: [subjName],
+            storage: StorageType.File,
+        });
+    }
 
 
     console.log(`Stream '${streamName}' is ready to capture '${subjName}' messages`);
