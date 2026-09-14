@@ -1,3 +1,5 @@
 node_modules
 note.md
 .env
+
+dist

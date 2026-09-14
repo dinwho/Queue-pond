@@ -28,7 +28,9 @@
     "typescript": "^7.0.2"
   },
   "dependencies": {
+    "@langchain/langgraph": "^1.4.15",
     "nats": "^2.29.3",
+    "openai": "^7.15.0",
     "playwright-core": "^1.62.1"
   }
 }

@@ -1,7 +1,6 @@
-import { connect, JSONCodec } from "nats";
-import { PriceCheckTask } from ".";
-import { processPriceCheck } from "./processor";
-
+import { AckPolicy, connect, JSONCodec, StorageType } from "nats";
+import type { PriceCheckTask } from ".";
+import { runPriceTrackerGraph } from "./graph";
 
 
 async function runWorker()
@@ -23,11 +22,27 @@ async function runWorker()
     const streamName = "PRICES";
     const consumerTag = "price-checker-worker";
 
-    await jsm.consumers.add(streamName, {
-        durable_name: consumerTag,
-        ack_policy: "explicit" as any, //worker must send msg.ack() to finish job
-        filter_subject: "price.check",
-    });
+    // The worker may start before a publisher has ever run, so it owns the
+    // initial stream setup as well. Both operations are safe on restarts.
+    try {
+        await jsm.streams.info(streamName);
+    } catch {
+        await jsm.streams.add({
+            name: streamName,
+            subjects: ["price.check"],
+            storage: StorageType.File,
+        });
+    }
+
+    try {
+        await jsm.consumers.info(streamName, consumerTag);
+    } catch {
+        await jsm.consumers.add(streamName, {
+            durable_name: consumerTag,
+            ack_policy: AckPolicy.Explicit,
+            filter_subject: "price.check",
+        });
+    }
 
     const consumer = await js.consumers.get(streamName,consumerTag);
 
@@ -44,14 +59,14 @@ async function runWorker()
         console.log(` [WORKER] Scraping URL: ${task.productUrl}`);
         console.log(` [WORKER] Target Price: $${task.targetPrice}`);
 
-        try {
-            await processPriceCheck(task);
-            msg.ack();
-            console.log(` [WORKER] Task ${task.taskId} completed and ACKed!\n`);
-        } catch (error) {
-            console.error(` [WORKER] Task ${task.taskId} failed; retrying in 5 seconds.`, error);
-            msg.nak(5_000);
+        const result = await runPriceTrackerGraph(task);
+        console.log(`current price: ${result.currentPrice}`);
+        if (result.status === "retry") {
+        msg.nak(5_000);
+        continue;
         }
+
+        msg.ack();
 
     }
 
