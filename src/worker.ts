@@ -21,6 +21,7 @@ async function runWorker()
 
     const streamName = "PRICES";
     const consumerTag = "price-checker-worker";
+    const maxDeliveries = Number(process.env.MAX_DELIVERIES || 3);
 
     // The worker may start before a publisher has ever run, so it owns the
     // initial stream setup as well. Both operations are safe on restarts.
@@ -35,12 +36,17 @@ async function runWorker()
     }
 
     try {
-        await jsm.consumers.info(streamName, consumerTag);
+        const consumerInfo = await jsm.consumers.info(streamName, consumerTag);
+        // This also updates an already-created durable consumer when the env changes.
+        if (consumerInfo.config.max_deliver !== maxDeliveries) {
+            await jsm.consumers.update(streamName, consumerTag, { max_deliver: maxDeliveries });
+        }
     } catch {
         await jsm.consumers.add(streamName, {
             durable_name: consumerTag,
             ack_policy: AckPolicy.Explicit,
             filter_subject: "price.check",
+            max_deliver: maxDeliveries,
         });
     }
 
@@ -55,17 +61,27 @@ async function runWorker()
     for await (const msg of messages){
         const task = jc.decode(msg.data);
 
-        console.log(`\n [WORKER] Received Task ID: ${task.taskId}`);
+        const deliveryAttempt = msg.info.deliveryCount;
+        console.log(`\n [WORKER] Received Task ID: ${task.taskId} (attempt ${deliveryAttempt}/${maxDeliveries})`);
         console.log(` [WORKER] Scraping URL: ${task.productUrl}`);
         console.log(` [WORKER] Target Price: $${task.targetPrice}`);
 
         const result = await runPriceTrackerGraph(task);
-        console.log(`current price: ${result.currentPrice}`);
+        console.log(`[WORKER] Result: ${result.status}; current price: ${result.currentPrice ?? "not found"}`);
         if (result.status === "retry") {
-        msg.nak(5_000);
-        continue;
+            if (deliveryAttempt >= maxDeliveries) {
+                console.error(`[WORKER] Task ${task.taskId} exhausted ${maxDeliveries} attempts: ${result.error}`);
+                msg.term(); // terminal failure: do not redeliver this bad/flaky task
+            } else {
+                console.warn(`[WORKER] Retrying task ${task.taskId}: ${result.error}`);
+                msg.nak(5_000);
+            }
+            continue;
         }
 
+        if (result.error) {
+            console.error(`[WORKER] Stopping task ${task.taskId}: ${result.error}`);
+        }
         msg.ack();
 
     }

@@ -30,8 +30,8 @@ async function runPublisher(){
 
     const task : PriceCheckTask = {
         taskId : "job-004",
-        productUrl : "https://leetcode.com/0xmarq",
-        targetPrice: 4.20,
+        productUrl : "",
+        targetPrice: 2200,
         userEmail: "hi@lol.com",
         createdAt: new Date().toISOString(),
     };

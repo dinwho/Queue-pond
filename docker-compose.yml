@@ -28,6 +28,7 @@ services:
     environment:
       - NATS_URL=nats:4222
       - BROWSERLESS_URL=ws://browserless:3000?token=secrettoken123
+      - MAX_DELIVERIES=3
     depends_on:
       nats:
         condition: service_started

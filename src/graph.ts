@@ -16,12 +16,12 @@ const TrackerState = Annotation.Root({
 
 type TrackerStateType = typeof TrackerState.State;
 
-async function checkDomPrice(state: TrackerStateType) {
+async function checkDomPrice(state: TrackerStateType){
   const result = await processPriceCheck(state.task);
   if (!result.ok) {
     return {
       attempts: state.attempts + 1,
-      status: result.screenshotBase64 ? "checking" as const : "retry" as const,
+      status: !result.retryable ? "stopped" as const : result.screenshotBase64 ? "checking" as const : "retry" as const,
       error: result.reason,
       screenshotBase64: result.screenshotBase64,
     };
@@ -39,7 +39,12 @@ async function readScreenshotPrice(state: TrackerStateType) {
   if (!state.screenshotBase64) return { status: "retry" as const, error: "No screenshot available" };
 
   const result = await readPriceFromScreenshot(state.screenshotBase64);
-  if (!result.ok) return { status: "retry" as const, error: result.reason };
+  if (!result.ok) {
+    return {
+      status: result.retryable ? "retry" as const : "stopped" as const,
+      error: result.reason,
+    };
+  }
 
   return {
     currentPrice: result.price,

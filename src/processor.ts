@@ -8,8 +8,17 @@ export type PriceExtractionResult =
   | { ok: false; retryable: boolean; reason: string; screenshotBase64?: string };
 
 function normalizeProductUrl(productUrl: string): string {
-  const withProtocol = /^[a-z][a-z\d+.-]*:\/\//i.test(productUrl) ? productUrl : `https://${productUrl}`;
-  return new URL(withProtocol).toString();
+  const trimmed = productUrl.trim();
+  if (/^\[.+\]\(.+\)$/.test(trimmed)) {
+    throw new Error("productUrl must be a plain URL, not Markdown link syntax");
+  }
+
+  const withProtocol = /^[a-z][a-z\d+.-]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  const parsed = new URL(withProtocol);
+  if (!/^https?:$/.test(parsed.protocol) || !parsed.hostname) {
+    throw new Error("productUrl must be an absolute http(s) URL");
+  }
+  return parsed.toString();
 }
 
 function parsePrice(value: string | null | undefined): number | undefined {
@@ -71,9 +80,16 @@ async function extractDomPrice(page: Page): Promise<PriceExtractionResult | unde
   }
 
   const selectors = [
-    '[itemprop="price"]', '[data-testid*="price" i]', '[data-price]',
-    '[class*="sale-price" i]', '[class*="product-price" i]', '[class*="current-price" i]',
-  ];
+  "#corePriceDisplay_desktop_feature_div .priceToPay .a-offscreen",
+  "#corePrice_feature_div .priceToPay .a-offscreen",
+  "#corePriceDisplay_desktop_feature_div .a-price:not(.a-text-price) .a-offscreen",
+  "#corePrice_feature_div .a-price:not(.a-text-price) .a-offscreen",
+
+  // Generic fallbacks only after Amazon-specific ones:
+  '[itemprop="price"]',
+  '[data-testid*="price" i]',
+  '[data-price]',
+];
   for (const selector of selectors) {
     const candidates = await page.locator(selector).evaluateAll((elements) => elements
       .filter((element) => {
@@ -97,12 +113,23 @@ export async function processPriceCheck(task: PriceCheckTask): Promise<PriceExtr
   const browserlessUrl = process.env.BROWSERLESS_URL || process.env.BROWSERLESSURL || "ws://localhost:3000?token=secrettoken123";
   let browser: Browser | undefined;
   let context: BrowserContext | undefined;
+  let productUrl: string;
+
+  try {
+    productUrl = normalizeProductUrl(task.productUrl);
+  } catch (error) {
+    return {
+      ok: false,
+      retryable: false,
+      reason: error instanceof Error ? error.message : "Invalid product URL",
+    };
+  }
 
   try {
     browser = await chromium.connectOverCDP(browserlessUrl, { timeout: 10_000 });
     context = await browser.newContext();
     const page = await context.newPage();
-    await page.goto(normalizeProductUrl(task.productUrl), { waitUntil: "domcontentloaded", timeout: 30_000 });
+    await page.goto(productUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
 
     const domResult = await extractDomPrice(page);
     if (domResult?.ok) {
